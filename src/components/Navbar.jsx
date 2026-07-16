@@ -1,25 +1,21 @@
 import { Link } from 'react-router-dom';
 import { useContext } from 'react';
-import { StoreContext } from '../context/StoreContext';
+import { SocialContext } from '../context/SocialContext';
 
 export default function Navbar() {
-  const { cart, user, logout } = useContext(StoreContext);
+  const { user, logoutUser } = useContext(SocialContext);
   return (
-    <nav className="bg-slate-900 text-white p-4 flex justify-between items-center px-8 shadow-md">
-      <Link to="/" className="text-xl font-bold tracking-wider">⚡ QUICKSHOP</Link>
-      <div className="flex gap-6 items-center">
-        <Link to="/" className="hover:text-blue-400">Products</Link>
-        <Link to="/cart" className="hover:text-blue-400 font-semibold">
-          Cart ({cart.reduce((acc, item) => acc + item.qty, 0)})
-        </Link>
+    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 px-8 py-3 flex justify-between items-center max-w-full">
+      <Link to="/" className="text-2xl font-black tracking-tighter text-blue-600">⚡ NEXUS</Link>
+      <div className="flex gap-6 items-center font-medium">
+        <Link to="/" className="text-gray-700 hover:text-blue-600">Feed</Link>
         {user ? (
           <>
-            <Link to="/orders" className="hover:text-blue-400">Orders</Link>
-            <span className="text-gray-400 font-medium">Hi, {user.name}</span>
-            <button onClick={logout} className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm font-semibold transition-colors cursor-pointer">Logout</button>
+            <Link to={`/user/${user.username}`} className="text-gray-700 hover:text-blue-600 font-semibold">@{user.username}</Link>
+            <button onClick={logoutUser} className="bg-gray-100 hover:bg-red-50 text-red-600 px-4 py-1.5 rounded-xl text-sm transition-colors cursor-pointer font-bold">Sign Out</button>
           </>
         ) : (
-          <Link to="/login" className="bg-blue-600 px-4 py-1 rounded hover:bg-blue-500 transition-colors">Login</Link>
+          <Link to="/login" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-1.5 rounded-xl text-sm transition-colors font-bold">Join Nexus</Link>
         )}
       </div>
     </nav>

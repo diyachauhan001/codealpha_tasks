@@ -9,19 +9,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize Supabase Client Connection Pipeline
+// Establish Supabase Connection Core Pipeline
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
-  console.log('⚡ Connected to Supabase Cloud Engine Successfully');
-} else {
-  console.error('❌ Missing Supabase Environment Keys Configuration Error');
-}
+console.log('⚡ Connected Social Platform Engine to Supabase Dashboard Context');
 
-// --- SECURE AUTHENTICATION MIDDLWARE ROUTINE ---
+// --- SECURE SECURITY IDENTIFICATION MIDDLEWARE ---
 const protect = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Not authorized, token missing' });
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Missing or malformed session token' });
+  }
+
+  const token = authHeader.split(' ')[1];
 
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
@@ -29,24 +29,34 @@ const protect = async (req, res, next) => {
     req.user = user;
     next();
   } catch (err) {
-    res.status(401).json({ message: 'Session authentication signature failed' });
+    res.status(401).json({ message: 'Authorization signatures check failed' });
   }
 };
+// Universal key parsing mapping engine
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
 
-// --- AUTH ROUTE CHANNELS ---
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Environment configuration mismatch error. Missing key tokens.');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+console.log('⚡ Connected Social Platform Engine to Supabase Dashboard Context');
+
+
+// --- AUTH ROUTING ENDPOINTS ---
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password } = req.body;
+  const { username, email, password } = req.body;
   try {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { display_name: name } }
+      options: { data: { username } }
     });
-
     if (error) return res.status(400).json({ message: error.message });
-    res.status(201).json({ _id: data.user?.id, name, email, token: data.session?.access_token });
-  } catch (error) {
-    res.status(500).json({ message: 'Registration pipeline failure' });
+    res.status(201).json({ _id: data.user?.id, username, email, token: data.session?.access_token });
+  } catch (err) {
+    res.status(500).json({ message: 'Execution fault' });
   }
 });
 
@@ -55,64 +65,76 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return res.status(401).json({ message: error.message });
-
     res.json({
       _id: data.user?.id,
-      name: data.user?.user_metadata?.display_name || email.split('@')[0],
+      username: data.user?.user_metadata?.username || email.split('@')[0],
       email: data.user?.email,
       token: data.session?.access_token
     });
-  } catch (error) {
-    res.status(500).json({ message: 'Login execution fault' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server entry validation mismatch' });
   }
 });
 
-// --- PRODUCT DIRECTORY CHANNELS ---
-app.get('/api/products', async (req, res) => {
-  const { data, error } = await supabase.from('products').select('*');
-  if (error) return res.status(400).json({ message: error.message });
-  res.json(data);
-});
+// --- CHRONOLOGICAL GLOBAL TIMELINE FEED ROUTES ---
+app.post('/api/posts', protect, async (req, res) => {
+  const { content } = req.body;
+  const username = req.user.user_metadata?.username || "anonymous";
 
-// Seed Utility Engine Endpoint (Populates your PostgreSQL tables automatically)
-app.post('/api/products/seed', async (req, res) => {
-  const samples = [
-    { name: "Wireless Headphones", description: "Noise-cancelling premium headphones.", price: 199, image: "https://unsplash.com" },
-    { name: "Smart Watch", description: "Fitness tracking with crisp OLED display.", price: 299, image: "https://unsplash.com" },
-    { name: "Mechanical Keyboard", description: "Tactile switches with vibrant RGB lighting.", price: 89, image: "https://unsplash.com" }
-  ];
-
-  // Try to insert; if tables are unbuilt, tells you exactly what to write into SQL Editor
-  const { data, error } = await supabase.from('products').insert(samples).select();
-  if (error) {
-    return res.status(400).json({ 
-      message: "Please run the SQL initialization queries in your Supabase dashboard editor first.",
-      error: error.message 
-    });
-  }
-  res.json(data);
-});
-
-// --- TRANSACTIONS ORDER HISTORY ROUTING ---
-app.post('/api/orders', protect, async (req, res) => {
-  const { orderItems, totalPrice } = req.body;
-  if (!orderItems || orderItems.length === 0) return res.status(400).json({ message: 'No items logged' });
-
-  const { data, error } = await supabase.from('orders').insert({
+  const { data, error } = await supabase.from('social_posts').insert({
     user_id: req.user.id,
-    order_items: orderItems,
-    total_price: totalPrice
+    username: username,
+    content: content,
+    likes: []
   }).select();
 
   if (error) return res.status(400).json({ message: error.message });
   res.status(201).json(data[0]);
 });
 
-app.get('/api/orders/myorders', protect, async (req, res) => {
-  const { data, error } = await supabase.from('orders').select('*').eq('user_id', req.user.id);
+app.get('/api/posts', async (req, res) => {
+  const { data, error } = await supabase.from('social_posts').select('*').order('created_at', { ascending: false });
   if (error) return res.status(400).json({ message: error.message });
   res.json(data);
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Supabase Express Router running on port ${PORT}`));
+app.put('/api/posts/:id/like', protect, async (req, res) => {
+  const { data: post, error: fetchErr } = await supabase.from('social_posts').select('*').eq('id', req.params.id).single();
+  if (fetchErr) return res.status(404).json({ message: 'Post tracking element absent' });
+
+  let currentLikes = Array.isArray(post.likes) ? post.likes : [];
+  if (currentLikes.includes(req.user.id)) {
+    currentLikes = currentLikes.filter(uid => uid !== req.user.id);
+  } else {
+    currentLikes.push(req.user.id);
+  }
+
+  const { data: updatedPost, error: saveErr } = await supabase.from('social_posts').update({ likes: currentLikes }).eq('id', req.params.id).select().single();
+  if (saveErr) return res.status(400).json({ message: saveErr.message });
+  res.json(updatedPost);
+});
+
+// --- NETWORK RELATIONSHIP GRAPH ENDPOINTS ---
+app.get('/api/users/:username', async (req, res) => {
+  const { data, error } = await supabase.from('social_posts').select('user_id').eq('username', req.params.username).limit(1);
+  if (error || !data.length) return res.json({ username: req.params.username, bio: "Nexus network space explorer profile layout active grid.", followersCount: 0 });
+  
+  const targetUid = data[0].user_id;
+  const { count } = await supabase.from('social_follows').select('*', { count: 'exact', head: true }).eq('following_id', targetUid);
+  res.json({ username: req.params.username, bio: "Active Nexus workspace profile grid.", followersCount: count || 0, id: targetUid });
+});
+
+app.put('/api/users/:id/follow', protect, async (req, res) => {
+  const { data: existing } = await supabase.from('social_follows').select('*').eq('follower_id', req.user.id).eq('following_id', req.params.id);
+  
+  if (existing && existing.length > 0) {
+    await supabase.from('social_follows').delete().eq('follower_id', req.user.id).eq('following_id', req.params.id);
+    return res.json({ message: 'Unfollowed successfully' });
+  }
+
+  await supabase.from('social_follows').insert({ follower_id: req.user.id, following_id: req.params.id });
+  res.json({ message: 'Followed successfully' });
+});
+
+const PORT = process.env.PORT || 5001;
+app.listen(PORT, () => console.log(`🚀 Social Platform Express API Server active on port ${PORT}`));
